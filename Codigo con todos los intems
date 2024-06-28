@@ -1,0 +1,105 @@
+Sub ObtenerReservasBeds24()
+    Dim http As Object
+    Dim url As String
+    Dim apiKey As String
+    Dim propKey As String
+    Dim response As String
+    Dim json As Object
+    Dim i As Integer
+    Dim ws As Worksheet
+    Dim headers As Variant
+
+    ' Configura tu API Key y Prop Key
+    apiKey = "abcdef1234567890" ' Reemplaza con tu API Key
+    propKey = "propkey1234567890" ' Reemplaza con tu Prop Key
+
+    url = "https://api.beds24.com/json/getBookings"
+    
+    ' Configura los parámetros POST
+    Dim postData As String
+    postData = "{""authentication"":{""apiKey"":""" & apiKey & """,""propKey"":""" & propKey & """}}"
+
+    ' Crear objeto HTTP
+    Set http = CreateObject("MSXML2.XMLHTTP")
+
+    ' Abrir conexión
+    http.Open "POST", url, False
+    http.setRequestHeader "Content-Type", "application/json"
+    http.send postData
+
+    ' Obtener respuesta
+    response = http.responseText
+
+    ' Mostrar respuesta para debug (comentado para evitar la ventana emergente)
+    Debug.Print response
+
+    ' Parsear JSON
+    On Error GoTo ErrorHandler
+    Set json = JsonConverter.ParseJson(response)
+    On Error GoTo 0
+
+    ' Establecer hoja de trabajo
+    Set ws = ThisWorkbook.Sheets("Sheet1")
+    ws.Cells.Clear
+
+    ' Escribir encabezados
+    headers = Array("bookId", "roomId", "unitId", "roomQty", "status", "substatus", "firstNight", "lastNight", "numAdult", "numChild", _
+                    "guestTitle", "guestFirstName", "guestName", "guestEmail", "guestPhone", "guestMobile", "guestFax", "guestCompany", _
+                    "guestAddress", "guestCity", "guestState", "guestPostcode", "guestCountry", "guestCountry2", "guestArrivalTime", _
+                    "guestVoucher", "guestComments", "notes", "message", "groupNote", "custom1", "custom2", "custom3", "custom4", _
+                    "custom5", "custom6", "custom7", "custom8", "custom9", "custom10", "flagColor", "flagText", "statusCode", "lang", _
+                    "price", "deposit", "tax", "commission", "currency", "rateDescription", "offerId", "referer", "refererEditable", _
+                    "reference", "apiSource", "apiReference", "allowChannelUpdate", "allowAutoAction", "allowReview", _
+                    "cancelUntil", "stripeToken", "propId", "ownerId", "invoiceeId", "bookingTime", "modified", "cancelTime", "masterId")
+
+    For i = LBound(headers) To UBound(headers)
+        ws.Cells(1, i + 1).Value = headers(i)
+    Next i
+
+    ' Escribir datos
+    i = 2
+    Dim booking As Object
+    For Each booking In json
+        Dim j As Integer
+        For j = LBound(headers) To UBound(headers)
+            On Error Resume Next
+            If headers(j) = "status" Then
+                ws.Cells(i, j + 1).Value = ObtenerDescripcionStatus(CInt(booking(headers(j))))
+            ElseIf booking.Exists(headers(j)) Then
+                ws.Cells(i, j + 1).Value = booking(headers(j))
+            End If
+            On Error GoTo 0
+        Next j
+        i = i + 1
+    Next booking
+
+    ' Limpiar
+    Set http = Nothing
+    Set json = Nothing
+    Exit Sub
+
+ErrorHandler:
+    MsgBox "Error parsing JSON: " & Err.Description
+    Debug.Print "Error parsing JSON: " & Err.Description
+End Sub
+
+Function ObtenerDescripcionStatus(statusCode As Integer) As String
+    Select Case statusCode
+        Case 0
+            ObtenerDescripcionStatus = "Cancelled"
+        Case 1
+            ObtenerDescripcionStatus = "Confirmed"
+        Case 2
+            ObtenerDescripcionStatus = "New"
+        Case 3
+            ObtenerDescripcionStatus = "Request"
+        Case 4
+            ObtenerDescripcionStatus = "Black"
+        Case 5
+            ObtenerDescripcionStatus = "Inquiry"
+        Case Else
+            ObtenerDescripcionStatus = "Unknown"
+    End Select
+End Function
+
+
