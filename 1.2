@@ -1,0 +1,102 @@
+Sub ObtenerReservasBeds24()
+    Dim http As Object
+    Dim url As String
+    Dim apiKey As String
+    Dim propKey As String
+    Dim response As String
+    Dim json As Object
+    Dim i As Integer
+    Dim ws As Worksheet
+    Dim headers As Variant
+
+    ' Configura tu API Key y Prop Key
+    apiKey = "abcdef1234567890" ' Reemplaza con tu API Key
+    propKey = "propkey1234567890" ' Reemplaza con tu Prop Key
+
+    url = "https://api.beds24.com/json/getBookings"
+    
+    ' Configura los parámetros POST
+    Dim postData As String
+    postData = "{""authentication"":{""apiKey"":""" & apiKey & """,""propKey"":""" & propKey & """}}"
+
+    ' Crear objeto HTTP
+    Set http = CreateObject("MSXML2.XMLHTTP")
+
+    ' Abrir conexión
+    http.Open "POST", url, False
+    http.setRequestHeader "Content-Type", "application/json"
+    http.send postData
+
+    ' Obtener respuesta
+    response = http.responseText
+
+    ' Mostrar respuesta para debug
+    Debug.Print response
+    MsgBox response
+
+    ' Parsear JSON
+    On Error GoTo ErrorHandler
+    Set json = JsonConverter.ParseJson(response)
+    On Error GoTo 0
+
+    ' Establecer hoja de trabajo
+    Set ws = ThisWorkbook.Sheets("Sheet1")
+    ws.Cells.Clear
+
+    ' Escribir encabezados
+    headers = Array("bookId", "roomId", "status", "firstNight", "lastNight", "numAdult", "numChild", "guestFullName", "guestEmail", _
+                    "guestPhone", "guestCountry", "guestCountry2", "guestComments", "notes", "flagColor", "price", "tax", _
+                    "commission", "rateDescription", "refererEditable", "apiReference", "propId", "ownerId", "bookingTime", _
+                    "modified", "cancelTime")
+
+    For i = LBound(headers) To UBound(headers)
+        ws.Cells(1, i + 1).Value = headers(i)
+    Next i
+
+    ' Escribir datos
+    i = 2
+    Dim booking As Variant
+    For Each booking In json
+        Dim j As Integer
+        For j = LBound(headers) To UBound(headers)
+            On Error Resume Next
+            If headers(j) = "guestFullName" Then
+                ws.Cells(i, j + 1).Value = booking("guestTitle") & " " & booking("guestFirstName") & " " & booking("guestName")
+            ElseIf headers(j) = "status" Then
+                ws.Cells(i, j + 1).Value = TraducirStatus(CStr(booking(headers(j))))
+            Else
+                ws.Cells(i, j + 1).Value = booking(headers(j))
+            End If
+            On Error GoTo 0
+        Next j
+        i = i + 1
+    Next booking
+
+    ' Limpiar
+    Set http = Nothing
+    Set json = Nothing
+    Exit Sub
+
+ErrorHandler:
+    MsgBox "Error parsing JSON: " & Err.Description
+    Debug.Print "Error parsing JSON: " & Err.Description
+End Sub
+
+Function TraducirStatus(status As String) As String
+    Select Case CInt(status)
+        Case 0
+            TraducirStatus = "Cancelada"
+        Case 1
+            TraducirStatus = "Confirmada"
+        Case 2
+            TraducirStatus = "Nueva"
+        Case 3
+            TraducirStatus = "Solicitud"
+        Case 4
+            TraducirStatus = "Bloqueada"
+        Case 5
+            TraducirStatus = "Consulta"
+        Case Else
+            TraducirStatus = "Desconocido"
+    End Select
+End Function
